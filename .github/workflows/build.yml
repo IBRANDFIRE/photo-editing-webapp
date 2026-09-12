@@ -1,0 +1,41 @@
+name: Compile to Single HTML
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Allows manual trigger from mobile UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Unzips app.zip if you uploaded it as a single archive
+      - name: Extract ZIP (if applicable)
+        run: |
+          if [ -f app.zip ]; then
+            unzip -o app.zip -d app/
+            cd app
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Inliner Tool
+        run: npm install -g html-inline
+
+      - name: Compile HTML
+        run: |
+          # Adjust path if files are inside a subfolder
+          html-inline -i index.html > bundled_app.html
+
+      - name: Upload Single HTML Asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-single-html
+          path: bundled_app.html
