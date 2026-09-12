@@ -1,3 +1,4 @@
+
 name: Compile to Single HTML
 
 on:
@@ -20,14 +21,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
-      - name: Install Single-File CLI Tool
+      - name: Install Single-File CLI
         run: npm install -g single-file-cli
 
       - name: Locate and Bundle HTML
         run: |
-          # Find index.html anywhere in the project
           INDEX_PATH=$(find . -name "index.html" -not -path "*/.*" | head -n 1)
 
           if [ -z "$INDEX_PATH" ]; then
@@ -36,17 +36,22 @@ jobs:
           fi
 
           echo "Found index.html at: $INDEX_PATH"
-
-          # Convert to absolute path
           ABS_INDEX_PATH=$(realpath "$INDEX_PATH")
 
-          # Bundle using single-file CLI
-          single-file "file://$ABS_INDEX_PATH" "$GITHUB_WORKSPACE/bundled_app.html" --browser-args='["--no-sandbox"]'
+          # Run single-file with dump-content to guarantee file creation
+          single-file "file://$ABS_INDEX_PATH" --dump-content --browser-args='["--no-sandbox"]' > bundled_app.html
+
+          # Verify file creation
+          if [ -f bundled_app.html ]; then
+            echo "Successfully generated bundled_app.html ($(du -h bundled_app.html | cut -f1))"
+          else
+            echo "Error: bundled_app.html was not created!"
+            exit 1
+          fi
 
       - name: Upload Single HTML Asset
         uses: actions/upload-artifact@v4
         with:
           name: compiled-single-html
           path: bundled_app.html
-
 
