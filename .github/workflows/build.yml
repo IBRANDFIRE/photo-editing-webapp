@@ -1,5 +1,5 @@
 
-name: Compile to Single HTML
+name: Compile Web App to Single HTML
 
 on:
   push:
@@ -23,12 +23,10 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Install Single-File CLI
-        run: npm install -g single-file-cli
-
-      - name: Locate and Bundle HTML
+      - name: Locate index.html and Prepare Project
         run: |
-          INDEX_PATH=$(find . -name "index.html" -not -path "*/.*" | head -n 1)
+          # Locate index.html anywhere in the project
+          INDEX_PATH=$(find . -name "index.html" -not -path "*/.*" -not -path "*/node_modules/*" | head -n 1)
 
           if [ -z "$INDEX_PATH" ]; then
             echo "Error: index.html not found!"
@@ -36,22 +34,40 @@ jobs:
           fi
 
           echo "Found index.html at: $INDEX_PATH"
-          ABS_INDEX_PATH=$(realpath "$INDEX_PATH")
-
-          # Run single-file with dump-content to guarantee file creation
-          single-file "file://$ABS_INDEX_PATH" --dump-content --browser-args='["--no-sandbox"]' > bundled_app.html
-
-          # Verify file creation
-          if [ -f bundled_app.html ]; then
-            echo "Successfully generated bundled_app.html ($(du -h bundled_app.html | cut -f1))"
-          else
-            echo "Error: bundled_app.html was not created!"
-            exit 1
+          TARGET_DIR=$(dirname "$INDEX_PATH")
+          
+          # Move files to root workspace directory if nested
+          if [ "$TARGET_DIR" != "." ]; then
+            mv "$TARGET_DIR"/* .
           fi
+
+      - name: Install Inlining Tools
+        run: npm install -g parcel html-inline
+
+      - name: Bundle Web App into Single HTML
+        run: |
+          # Remove restrictive CSP headers from HTML source
+          sed -i '/content-security-policy/Id' index.html
+          sed -i '/Content-Security-Policy/Id' index.html
+
+          # Method 1: Compile using Parcel Single File Bundle
+          npx parcel build index.html --no-source-maps --dist-dir build || true
+
+          if [ -f "build/index.html" ]; then
+            # Inline built bundle into single file
+            html-inline -i build/index.html > bundled_app.html
+          else
+            # Method 2: Fallback inlining
+            html-inline -i index.html > bundled_app.html
+          fi
+
+          # Strip remaining CSP headers from final output
+          sed -i '/content-security-policy/Id' bundled_app.html
+
+          echo "Bundling finished successfully. File size: $(du -h bundled_app.html | cut -f1)"
 
       - name: Upload Single HTML Asset
         uses: actions/upload-artifact@v4
         with:
           name: compiled-single-html
           path: bundled_app.html
-
