@@ -1,3 +1,4 @@
+
 name: Compile to Single HTML
 
 on:
@@ -15,7 +16,6 @@ jobs:
 
       - name: Extract ZIP files (if present)
         run: |
-          # Automatically extract any .zip file found in the repository
           find . -maxdepth 2 -name "*.zip" -exec unzip -o {} \;
 
       - name: Setup Node.js
@@ -28,7 +28,7 @@ jobs:
 
       - name: Locate and Compile HTML
         run: |
-          # Search for index.html anywhere in the workspace
+          # Find index.html anywhere in the project
           INDEX_PATH=$(find . -name "index.html" -not -path "*/.*" | head -n 1)
 
           if [ -z "$INDEX_PATH" ]; then
@@ -38,15 +38,14 @@ jobs:
 
           echo "Found index.html at: $INDEX_PATH"
 
-          # Navigate into the folder containing index.html so relative paths work
+          # Get directory containing index.html
           TARGET_DIR=$(dirname "$INDEX_PATH")
+          
+          # Change directory to process assets correctly
           cd "$TARGET_DIR"
 
-          # Bundle into single file
-          html-inline -i index.html > bundled_app.html
-          
-          # Move output file to root workspace root
-          mv bundled_app.html $GITHUB_WORKSPACE/bundled_app.html
+          # Bundle into single HTML file at root level safely
+          html-inline -i index.html > "$GITHUB_WORKSPACE/bundled_app.html"
 
       - name: Upload Single HTML Asset
         uses: actions/upload-artifact@v4
